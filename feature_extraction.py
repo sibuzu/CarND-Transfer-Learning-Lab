@@ -1,6 +1,11 @@
 import pickle
+import numpy as np
 import tensorflow as tf
-# TODO: import Keras layers you need here
+from keras.models import Sequential 
+from keras.layers.core import Flatten, Dense, Activation
+from keras.utils import to_categorical
+from keras.optimizers import Adam
+from keras.losses import categorical_crossentropy
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -31,8 +36,14 @@ def load_bottleneck_data(training_file, validation_file):
     X_val = validation_data['features']
     y_val = validation_data['labels']
 
-    return X_train, y_train, X_val, y_val
+    X_train = np.reshape(X_train, (X_train.shape[0], -1))
+    X_val = np.reshape(X_val, (X_val.shape[0], -1))
 
+    n_class = np.max(y_train) + 1
+    y_train = to_categorical(y_train, n_class)
+    y_val = to_categorical(y_val, n_class)
+
+    return X_train, y_train, X_val, y_val
 
 def main(_):
     # load bottleneck data
@@ -47,7 +58,26 @@ def main(_):
     # 10 for cifar10
     # 43 for traffic
 
+    n_input = X_train.shape[1]
+    n_output = y_train.shape[1]
+    print(n_input, n_output)
+
+    model = Sequential()
+    model.add(Dense(512, activation='relu', input_shape=(n_input,)))
+    model.add(Dense(512, activation='relu'))
+    model.add(Dense(n_output, activation='softmax'))
+    model.compile(loss=categorical_crossentropy,
+              optimizer=Adam(),
+              metrics=['accuracy'])
+    model.summary()
+
     # TODO: train your model here
+    model.fit(X_train, y_train, batch_size=64, epochs=20, 
+        validation_data=(X_val, y_val), shuffle=True)
+    
+    score = model.evaluate(X_val, y_val, batch_size=128)
+    print('Test loss:', score[0])
+    print('Test accuracy:', score[1])
 
 
 # parses flags and calls the `main` function above
